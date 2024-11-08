@@ -1,21 +1,18 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using Azure;
 using Azure.AI.DocumentIntelligence;
 
-public interface IDocumentClassificationProvider {
-    Task ClassifyDocumentAsync(string documentLocation);
- }
+public interface IDocumentClassificationProvider
+{
+    Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(
+        string documentLocation
+    );
+}
 
 public class DocumentClassificationProvider : IDocumentClassificationProvider
 {
-    // Classify Document
-
-    // 1. (OPTIONAL) Verify can access document from provided URL
-
-    // 2. Get document classification, split by document type, from Azure AI
-    public async Task ClassifyDocumentAsync(string documentLocation)
+    public async Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(
+        string blobPath
+    )
     {
         string endpoint = "https://revisa-reader-ai.cognitiveservices.azure.com/";
         string apiKey = "4aa34c211f434dd0a52bcdf69a27fc3d";
@@ -25,7 +22,7 @@ public class DocumentClassificationProvider : IDocumentClassificationProvider
             new AzureKeyCredential(apiKey)
         );
 
-        Uri documentUri = new Uri(documentLocation);
+        Uri documentUri = new Uri(blobPath);
         string classifierId = "revisa-pdf-mapperv0.4.0";
         var content = new ClassifyDocumentContent() { UrlSource = documentUri };
 
@@ -33,30 +30,21 @@ public class DocumentClassificationProvider : IDocumentClassificationProvider
             WaitUntil.Completed,
             classifierId,
             content,
-            split:SplitMode.Auto,
-            pages:"1-33"
+            split: SplitMode.Auto,
+            pages: "1-10"
         );
         AnalyzeResult result = operation.Value;
 
-        Console.WriteLine($"Input was classified by the classifier with ID '{result.ModelId}'.");
+        List<(string DocType, IEnumerable<int> Pages)> docsPages = result
+            .Documents.Select(doc =>
+                (doc.DocType, doc.BoundingRegions.Select(reg => reg.PageNumber))
+            )
+            .ToList();
 
-// next, take each document and extract basic text from Text Extractor
-        foreach (AnalyzedDocument document in result.Documents)
-        {
-            
-        }
+        List<(string DocType, int StartPage, int EndPage)> docs = docsPages.Select((doc) => {
+            return (DocType:doc.DocType, StartPage:doc.Pages.Min(), EndPage:doc.Pages.Max());
+            }).ToList();
+
+        return docs;
     }
-    // 3. Get File from Azure Blob Storage
-
-    // 4. Use AI Response and to split File by type (lesson, module overview, etc)
-    // ----> will need to merge pages into single files and follow convention:
-    // ---->  <module>_<topic>_<lesson>_<language>.pdf
-    // --------> Lesson: M3_TB_L8_EN.pdf
-    // --------> Topic: M3_TB_ES.pdf
-    // --------> Module Overview: M3_ES.pdf
-
-
-    // 5. Create Module folder and place newly split Files within
-
-    // 4. Parse re
 }
