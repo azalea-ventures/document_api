@@ -1,0 +1,109 @@
+using System.Text;
+using Azure.Storage.Blobs;
+using iText.Kernel.Pdf;
+
+public interface IPdfSplitter
+{
+    Task SplitPdfAsync(
+        string blobUri,
+        List<(string DocType, int StartPage, int EndPage)> documents
+    );
+}
+
+public class PdfSplitter : IPdfSplitter
+{
+    private readonly BlobContainerClient _containerClient;
+
+    public PdfSplitter(BlobServiceClient blobServiceClient)
+    {
+        _containerClient = blobServiceClient.GetBlobContainerClient("source-files");
+        _containerClient.CreateIfNotExists();
+    }
+
+    public async Task SplitPdfAsync(
+        string blobUri,
+        List<(string DocType, int StartPage, int EndPage)> documents
+    )
+    {
+        string blobName = String.Join(
+            "/",
+            blobUri.Split("/").Reverse().Take(2).Reverse().ToArray()
+        );
+        // Get a reference to the blob (original full document)
+        BlobClient blobClient = _containerClient.GetBlobClient(blobName);
+
+        // Download the blob to a stream
+        using (MemoryStream stream = new MemoryStream())
+        {
+            await blobClient.DownloadToAsync(stream);
+            stream.Position = 0; // Reset the stream position
+            List<(int StartPage, int EndPage)> pageBoundaries = documents
+                .Select(doc => (doc.StartPage, doc.EndPage))
+                .ToList();
+
+            // Loop through each boundary and save each part as a separate blob
+            for (int i = 0; i < pageBoundaries.Count; i++)
+            {
+                var (startPage, endPage) = pageBoundaries[i];
+
+                using (MemoryStream splitDocStream = new MemoryStream())
+                {
+                    SetOutputStream(stream, splitDocStream, startPage, endPage);
+                    splitDocStream.Position = 0;
+                    // Save the part to a new blob
+                    string partBlobName =
+                        $"{Path.GetFileNameWithoutExtension(blobName)}_{documents[i].DocType}_{i + 1}.pdf";
+                    BlobClient partBlobClient = _containerClient.GetBlobClient(partBlobName);
+
+                    await partBlobClient.UploadAsync(splitDocStream, overwrite: true);
+                }
+            }
+        }
+    }
+
+    private void SetOutputStream(
+        Stream documentStream,
+        MemoryStream outputStream,
+        int startPage,
+        int endPage
+    )
+    {
+        using (PdfDocument pdfDoc = new PdfDocument(new PdfReader(documentStream)))
+        using (MemoryStream tempStream = new MemoryStream())
+        using (PdfDocument splitDoc = new PdfDocument(new PdfWriter(tempStream)))
+        {
+            List<int> pagesToCopy = new List<int>();
+            for (int i = startPage; i <= endPage; i++)
+            {
+                pagesToCopy.Add(i);
+            }
+
+            pdfDoc.CopyPagesTo(pagesToCopy, splitDoc); // love this
+            pdfDoc.SetCloseReader(false); // keep the source stream open after pdf doc closure
+            documentStream.Position = 0; // make sure the source stream is reset before the next split doc is written
+            // Close splitDoc to finalize the PDF content in tempStream
+            splitDoc.SetCloseWriter(false);
+            splitDoc.Close();
+            // Copy the finalized PDF content from tempStream to the provided writeStream
+            tempStream.Position = 0;
+            tempStream.CopyTo(outputStream);
+        }
+
+        // Reset the position of writeStream to the beginning for reading
+        outputStream.Position = 0;
+
+        // Placeholder for actual document processing to extract specific pages.
+        // This would involve using a PDF library or processing library to split based on page numbers.
+        // PdfDocument pdfDoc = new PdfDocument(new PdfReader(documentStream));
+        // PdfDocument splitDoc = new PdfDocument(new PdfWriter(writeStream));
+        // List<int> pagesToCopy = new List<int>();
+        // for (int i = startPage; i <= endPage; i++)
+        // {
+        //     pagesToCopy.Add(i);
+        // }
+
+        // pdfDoc.CopyPagesTo(pagesToCopy, splitDoc);
+        // splitDoc.FlushCopiedObjects(pdfDoc); // Close to finalize the document in the stream
+        // writeStream.Position = 0; // Reset the stream position to the beginning
+    }
+}
