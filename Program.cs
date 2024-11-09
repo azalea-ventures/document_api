@@ -21,9 +21,9 @@ app.UseSwaggerUI();
 
 app.MapPost(
         "/classify",
-        async Task<List<Document>> (string path, IDocumentClassificationProvider provider) =>
+        async Task<List<Document>> (string blobName, string pageRange, IDocumentClassificationProvider provider) =>
         {
-            var result = await provider.ClassifyDocumentAsync(path);
+            var result = await provider.ClassifyDocumentAsync(blobName, pageRange);
 
             return result
                 .Select(doc => new Document
@@ -41,12 +41,16 @@ app.MapPost(
         "/split",
         async Task (
             string blobName,
+            string pageRange,
             IDocumentClassificationProvider provider,
             IPdfSplitter splitter
         ) =>
         {
-            await provider.ClassifyDocumentAsync(blobName);
-            // await splitter.SplitPdfAsync(blobName,  )
+            var result = await provider.ClassifyDocumentAsync(blobName, pageRange);
+            await splitter.SplitPdfAsync(
+                blobName,
+                result
+            );
         }
     )
     .WithOpenApi();

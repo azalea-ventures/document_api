@@ -4,14 +4,14 @@ using Azure.AI.DocumentIntelligence;
 public interface IDocumentClassificationProvider
 {
     Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(
-        string documentLocation
+        string blobName, string pageRange
     );
 }
 
 public class DocumentClassificationProvider : IDocumentClassificationProvider
 {
     public async Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(
-        string blobPath
+        string blobName, string pageRange
     )
     {
         string endpoint = "https://revisa-reader-ai.cognitiveservices.azure.com/";
@@ -22,7 +22,7 @@ public class DocumentClassificationProvider : IDocumentClassificationProvider
             new AzureKeyCredential(apiKey)
         );
 
-        Uri documentUri = new Uri(blobPath);
+        Uri documentUri = new Uri(blobName);
         string classifierId = "revisa-pdf-mapperv0.4.0";
         var content = new ClassifyDocumentContent() { UrlSource = documentUri };
 
@@ -31,7 +31,7 @@ public class DocumentClassificationProvider : IDocumentClassificationProvider
             classifierId,
             content,
             split: SplitMode.Auto,
-            pages: "1-10"
+            pages: pageRange
         );
         AnalyzeResult result = operation.Value;
 
