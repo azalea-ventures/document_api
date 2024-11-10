@@ -25,13 +25,13 @@ public class PdfSplitter : IPdfSplitter
         List<(string DocType, int StartPage, int EndPage)> documents
     )
     {
+        string destFolder = "output";
         string blobName = String.Join(
             "/",
             blobUri.Split("/").Reverse().Take(2).Reverse().ToArray()
         );
         // Get a reference to the blob (original full document)
         BlobClient blobClient = _containerClient.GetBlobClient(blobName);
-
         // Download the blob to a stream
         using (MemoryStream stream = new MemoryStream())
         {
@@ -51,8 +51,9 @@ public class PdfSplitter : IPdfSplitter
                     SetOutputStream(stream, splitDocStream, startPage, endPage);
                     splitDocStream.Position = 0;
                     // Save the part to a new blob
+                    string docTypeFolder = documents[i].DocType;
                     string partBlobName =
-                        $"{Path.GetFileNameWithoutExtension(blobName)}_{documents[i].DocType}_{i + 1}.pdf";
+                        $"{destFolder}/{docTypeFolder}/{documents[i].DocType}_{i + 1}.pdf";
                     BlobClient partBlobClient = _containerClient.GetBlobClient(partBlobName);
 
                     await partBlobClient.UploadAsync(splitDocStream, overwrite: true);
@@ -91,19 +92,5 @@ public class PdfSplitter : IPdfSplitter
 
         // Reset the position of writeStream to the beginning for reading
         outputStream.Position = 0;
-
-        // Placeholder for actual document processing to extract specific pages.
-        // This would involve using a PDF library or processing library to split based on page numbers.
-        // PdfDocument pdfDoc = new PdfDocument(new PdfReader(documentStream));
-        // PdfDocument splitDoc = new PdfDocument(new PdfWriter(writeStream));
-        // List<int> pagesToCopy = new List<int>();
-        // for (int i = startPage; i <= endPage; i++)
-        // {
-        //     pagesToCopy.Add(i);
-        // }
-
-        // pdfDoc.CopyPagesTo(pagesToCopy, splitDoc);
-        // splitDoc.FlushCopiedObjects(pdfDoc); // Close to finalize the document in the stream
-        // writeStream.Position = 0; // Reset the stream position to the beginning
     }
 }
