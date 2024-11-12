@@ -10,16 +10,20 @@ public interface IDocumentClassificationProvider
 
 public class DocumentClassificationProvider : IDocumentClassificationProvider
 {
+
+        private IConfiguration _configuration;
+
+        public DocumentClassificationProvider(IConfiguration configuration){
+            _configuration = configuration;
+        }
     public async Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(
         string blobName, string pageRange
     )
     {
-        string endpoint = "https://revisa-reader-ai.cognitiveservices.azure.com/";
-        string apiKey = "4aa34c211f434dd0a52bcdf69a27fc3d";
 
         var client = new DocumentIntelligenceClient(
-            new Uri(endpoint),
-            new AzureKeyCredential(apiKey)
+            new Uri(_configuration.GetValue<string>("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")),
+            new AzureKeyCredential(_configuration.GetValue<string>("AZURE_DOCUMENT_INTELLIGENCE_KEY"))
         );
 
         Uri documentUri = new Uri(blobName);
@@ -47,4 +51,5 @@ public class DocumentClassificationProvider : IDocumentClassificationProvider
 
         return docs;
     }
+
 }
