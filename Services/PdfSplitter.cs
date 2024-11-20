@@ -43,8 +43,9 @@ public class PdfSplitter : IPdfSplitter
 
             // Loop through each boundary and save each part as a separate blob
 
-            string topic = "";
-            int lessonNumber = 1;
+            int topic = 0;
+            int lessonNumber = 0;
+
             for (int i = 0; i < pageBoundaries.Count; i++)
             {
                 var (startPage, endPage) = pageBoundaries[i];
@@ -56,61 +57,30 @@ public class PdfSplitter : IPdfSplitter
                     // Save the part to a new blob
                     string docTypeFolder = documents[i].DocType;
 
-                    if (docTypeFolder == "topic")
-                    {
-                        lessonNumber = 1;
-                        switch (topic)
-                        {
-                            case "":
-                                topic = "A";
-                                break;
-                            case "A":
-                                topic = "B";
-                                break;
-                            case "B":
-                                topic = "C";
-                                break;
-                            case "C":
-                                topic = "D";
-                                break;
-                            case "D":
-                                topic = "E";
-                                break;
-                            case "E":
-                                topic = "F";
-                                break;
-                            case "F":
-                                topic = "G";
-                                break;
-                            case "G":
-                                topic = "H";
-                                break;
-                            case "H":
-                                topic = "I";
-                                break;
-                            case "I":
-                                topic = "J";
-                                break;
-                            case "J":
-                                topic = "K";
-                                break;
-                            case "K":
-                                topic = "L";
-                                break;
-                            case "L":
-                                topic = "M";
-                                break;
-                            default:
-                                topic = "N";
-                                break;
-                        }
-                    }
-                    if (docTypeFolder == "lesson"){
-                        lessonNumber++;
+                    switch (docTypeFolder){
+                        case "topic":
+                            topic++;
+                            break;
+                        case "lesson":
+                            lessonNumber++;
+                            break;
+                        default:
+                            break;
                     }
 
-                    string partBlobName = $"{destFolder}/{(topic == "" ? "meta" : topic)}/{docTypeFolder}/{lessonNumber}.pdf";
-                    BlobClient partBlobClient = _containerClient.GetBlobClient(partBlobName);
+                    string partBlobName = $"{destFolder}";
+
+                    if (topic != 0 && !docTypeFolder.Equals("answer_key")){
+                        partBlobName += $"/topic{topic}";
+                    }
+                    if (lessonNumber != 0 && !docTypeFolder.Equals("answer_key") 
+                    && !docTypeFolder.Equals("mm_assessment_task") 
+                    && !docTypeFolder.Equals("end_of_module_task")){
+                        partBlobName += $"/lesson{lessonNumber}";
+                    }
+
+
+                    BlobClient partBlobClient = _containerClient.GetBlobClient(partBlobName + docTypeFolder + ".pdf");
 
                     await partBlobClient.UploadAsync(splitDocStream, overwrite: true);
                 }
