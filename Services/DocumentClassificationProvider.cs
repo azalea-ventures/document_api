@@ -27,7 +27,7 @@ public class DocumentClassificationProvider : IDocumentClassificationProvider
         );
 
         Uri documentUri = new Uri(blobName);
-        string classifierId = "math-reader-v0.4.0";
+        string classifierId = "math-reader-v0.5.0";
         var content = new ClassifyDocumentContent() { UrlSource = documentUri };
 
         Operation<AnalyzeResult> operation = await client.ClassifyDocumentAsync(

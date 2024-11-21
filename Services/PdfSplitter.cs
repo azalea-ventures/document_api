@@ -42,6 +42,10 @@ public class PdfSplitter : IPdfSplitter
                 .ToList();
 
             // Loop through each boundary and save each part as a separate blob
+
+            int topic = 0;
+            int lessonNumber = 0;
+
             for (int i = 0; i < pageBoundaries.Count; i++)
             {
                 var (startPage, endPage) = pageBoundaries[i];
@@ -52,9 +56,31 @@ public class PdfSplitter : IPdfSplitter
                     splitDocStream.Position = 0;
                     // Save the part to a new blob
                     string docTypeFolder = documents[i].DocType;
-                    string partBlobName =
-                        $"{destFolder}/{docTypeFolder}/{documents[i].DocType}_{i + 1}.pdf";
-                    BlobClient partBlobClient = _containerClient.GetBlobClient(partBlobName);
+
+                    switch (docTypeFolder){
+                        case "topic":
+                            topic++;
+                            break;
+                        case "lesson":
+                            lessonNumber++;
+                            break;
+                        default:
+                            break;
+                    }
+
+                    string partBlobName = $"{destFolder}";
+
+                    if (topic != 0 && !docTypeFolder.Equals("answer_key")){
+                        partBlobName += $"/topic{topic}";
+                    }
+                    if (lessonNumber != 0 && !docTypeFolder.Equals("answer_key") 
+                    && !docTypeFolder.Equals("mm_assessment_task") 
+                    && !docTypeFolder.Equals("end_of_module_task")){
+                        partBlobName += $"/{lessonNumber}";
+                    }
+
+
+                    BlobClient partBlobClient = _containerClient.GetBlobClient(partBlobName + "/" + docTypeFolder + ".pdf");
 
                     await partBlobClient.UploadAsync(splitDocStream, overwrite: true);
                 }
