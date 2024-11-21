@@ -76,11 +76,11 @@ public class PdfSplitter : IPdfSplitter
                     if (lessonNumber != 0 && !docTypeFolder.Equals("answer_key") 
                     && !docTypeFolder.Equals("mm_assessment_task") 
                     && !docTypeFolder.Equals("end_of_module_task")){
-                        partBlobName += $"/lesson{lessonNumber}";
+                        partBlobName += $"/{lessonNumber}";
                     }
 
 
-                    BlobClient partBlobClient = _containerClient.GetBlobClient(partBlobName + docTypeFolder + ".pdf");
+                    BlobClient partBlobClient = _containerClient.GetBlobClient(partBlobName + "/" + docTypeFolder + ".pdf");
 
                     await partBlobClient.UploadAsync(splitDocStream, overwrite: true);
                 }
