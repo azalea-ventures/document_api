@@ -88,14 +88,13 @@ app.MapPost(
             {
                 if (result.RawFields.Any(field => field.FieldName == "vocab"))
                 {
-                    var vocabFields = result.RawFields
-                        .Where(f => f.FieldName == "vocab")
+                    result.ModuleOverviewFields = result
+                        .RawFields.Where(f => f.FieldName == "vocab")
                         .Select(f => new ModuleOverviewField(
                             "vocab",
                             f.FieldContentRaw.Split(" · ")
                         ))
                         .ToList();
-                    result.GetType().GetProperty("Fields")?.SetValue(result, vocabFields);
                 }
             });
 
