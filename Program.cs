@@ -59,11 +59,47 @@ app.MapPost(
     .WithOpenApi();
 
 app.MapPost(
-        "/extract",
-        async Task<List<DocumentFields>> (string path, ITextExtractionProvider provider) =>
+        "/extract/lessons",
+        async Task<List<DocumentFields>> (
+            string path,
+            string modelId,
+            ITextExtractionProvider provider
+        ) =>
         {
             var urisResult = await provider.GetBlobsUrisAsync(path);
-            return await provider.ExtractTextFromUrisAsync(urisResult);
+            return await provider.ExtractTextFromUrisAsync(urisResult, modelId);
+        }
+    )
+    .WithOpenApi();
+
+app.MapPost(
+        "/extract/module-overview",
+        async Task<List<ModuleOverviewFields>> (
+            string uri,
+            string modelId,
+            ITextExtractionProvider provider
+        ) =>
+        {
+            var results = await provider.ExtractTextFromUrisAsync(
+                new List<Uri> { new Uri(uri) },
+                modelId
+            );
+            // results.ForEach(result =>
+            // {
+            //     if (result.Fields.Any(f => f.FieldName == "vocab"))
+            //     {
+            //         result.Fields = result
+            //             .Fields.Where(f => f.FieldName == "vocab")
+            //             .Select(f => (FieldBase)new ModuleOverviewField(
+            //                 "vocab",
+            //                 f.FieldContentRaw.Split(" · ")
+            //             ))
+            //             .ToList();
+            //     }
+            // });
+
+
+            return null;
         }
     )
     .WithOpenApi();
