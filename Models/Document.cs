@@ -1,10 +1,5 @@
 public class Document
 {
-    // public Document(string docType, int startPage, int endPage){
-    //     DocType = docType;
-    //     StartPage = startPage;
-    //     EndPage = endPage;
-    // }
     public string DocType { get; set; }
     public int StartPage { get; set; }
     public int EndPage { get; set; }
@@ -12,16 +7,43 @@ public class Document
 
 public class DocumentFields
 {
-    public List<LessonField> Fields { get; set; } =
-        new ();
+    public DocumentFields() { }
+
+    public DocumentFields(List<FieldBase> fields)
+    {
+        RawFields = fields;
+    }
+
+    public List<FieldBase> RawFields { get; set; } = new();
+    public List<LessonField> LessonFields { get; set; } = new();
+    public List<ModuleOverviewField> ModuleOverviewFields { get; set; } = new();
 }
 
-public class LessonField{
-
-    public LessonField (string name, string content){
+public class FieldBase
+{
+    public FieldBase(string name, string content)
+    {
         FieldName = name;
+        FieldContentRaw = content;
+    }
+
+    public string FieldName { get; set; }
+    public string FieldContentRaw { get; set; }
+}
+
+public class LessonField : FieldBase
+{
+    public LessonField(string name, string content)
+        : base(name, content) { }
+}
+
+public class ModuleOverviewField : FieldBase
+{
+    public ModuleOverviewField(string name, string[] content)
+        : base(name, string.Join(", ", content))
+    {
         FieldContent = content;
     }
-    public string FieldName { get; set;}
-    public string FieldContent  { get; set;}
+
+    public string[] FieldContent { get; set; }
 }

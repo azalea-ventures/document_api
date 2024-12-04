@@ -6,7 +6,7 @@ using Azure.Storage.Blobs.Models;
 public interface ITextExtractionProvider
 {
     Task<List<Uri>> GetBlobsUrisAsync(string path);
-    Task<List<DocumentFields>> ExtractTextFromUrisAsync(List<Uri> blobUris);
+    Task<List<DocumentFields>> ExtractTextFromUrisAsync(List<Uri> blobUris, string modelId);
 }
 
 public class TextExtractionProvider : ITextExtractionProvider
@@ -40,7 +40,7 @@ public class TextExtractionProvider : ITextExtractionProvider
         return blobUris;
     }
 
-    public async Task<List<DocumentFields>> ExtractTextFromUrisAsync(List<Uri> blobUris)
+    public async Task<List<DocumentFields>> ExtractTextFromUrisAsync(List<Uri> blobUris, string modelId)
     {
         if (!blobUris.Any())
         {
@@ -52,7 +52,7 @@ public class TextExtractionProvider : ITextExtractionProvider
                     .Select(
                         async (uri) =>
                         {
-                            return await ExtractTextFromUriAsync(uri);
+                            return await ExtractTextFromUriAsync(uri, modelId);
                         }
                     )
                     .ToArray()
@@ -66,15 +66,15 @@ public class TextExtractionProvider : ITextExtractionProvider
                     {
                         foreach (AnalyzedDocument doc in result.Documents)
                         {
-                            DocumentFields docFields = new();
-                            docFields.Fields = doc
-                                .Fields.Select(field => new LessonField(
+                            List<FieldBase> docFields = new();
+                            docFields = doc
+                                .Fields.Select(field => new FieldBase(
                                     field.Key,
                                     field.Value.Content
                                 ))
                                 .ToList();
 
-                            resultFields.Add(docFields);
+                            resultFields.Add(new DocumentFields(docFields));
                         }
                     }
 
@@ -83,15 +83,13 @@ public class TextExtractionProvider : ITextExtractionProvider
             );
     }
 
-    private async Task<AnalyzeResult> ExtractTextFromUriAsync(Uri blobUri)
+    private async Task<AnalyzeResult> ExtractTextFromUriAsync(Uri blobUri, string modelId)
     {
         var client = new DocumentIntelligenceClient(
             new Uri(_configuration.GetValue<string>("AZURE_TEXT_EXTRACTOR_ENDPOINT")),
             new AzureKeyCredential(_configuration.GetValue<string>("AZURE_TEXT_EXTRACTOR_KEY"))
         );
         // Set your custom model ID
-        string modelId = "math-lesson-extractorv0.2.3";
-
         var content = new AnalyzeDocumentContent() { UrlSource = blobUri };
 
         Operation<AnalyzeResult> operation = await client.AnalyzeDocumentAsync(
