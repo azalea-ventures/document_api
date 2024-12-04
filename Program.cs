@@ -74,7 +74,7 @@ app.MapPost(
 
 app.MapPost(
         "/extract/module-overview",
-        async Task<List<ModuleOverviewFields>> (
+        async Task<List<DocumentFields>> (
             string uri,
             string modelId,
             ITextExtractionProvider provider
@@ -84,22 +84,22 @@ app.MapPost(
                 new List<Uri> { new Uri(uri) },
                 modelId
             );
-            // results.ForEach(result =>
-            // {
-            //     if (result.Fields.Any(f => f.FieldName == "vocab"))
-            //     {
-            //         result.Fields = result
-            //             .Fields.Where(f => f.FieldName == "vocab")
-            //             .Select(f => (FieldBase)new ModuleOverviewField(
-            //                 "vocab",
-            //                 f.FieldContentRaw.Split(" · ")
-            //             ))
-            //             .ToList();
-            //     }
-            // });
+            results.ForEach(result =>
+            {
+                if (result.RawFields.Any(field => field.FieldName == "vocab"))
+                {
+                    var vocabFields = result.RawFields
+                        .Where(f => f.FieldName == "vocab")
+                        .Select(f => new ModuleOverviewField(
+                            "vocab",
+                            f.FieldContentRaw.Split(" · ")
+                        ))
+                        .ToList();
+                    result.GetType().GetProperty("Fields")?.SetValue(result, vocabFields);
+                }
+            });
 
-
-            return null;
+            return results;
         }
     )
     .WithOpenApi();
