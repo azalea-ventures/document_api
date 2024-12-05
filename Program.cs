@@ -1,4 +1,5 @@
 using Azure.Storage.Blobs;
+using DocumentApi.Data.content;
 using Microsoft.EntityFrameworkCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -23,7 +24,7 @@ Action<DbContextOptionsBuilder> dbConfig = (opt) =>
     opt.UseSqlServer(connectionString);
     // opt.EnableSensitiveDataLogging(true);
 };
-
+builder.Services.AddDbContext<ContentContext>(dbConfig);
 builder.Services.AddScoped<IPdfSplitter, PdfSplitter>();
 builder.Services.AddScoped<ITextExtractionProvider, TextExtractionProvider>();
 
@@ -90,14 +91,17 @@ app.MapPost(
             ITextExtractionProvider provider
         ) =>
         {
+            //extract from blob file
             var results = await provider.ExtractTextFromUrisAsync(
                 new List<Uri> { new Uri(uri) },
                 modelId
             );
+            //massage for db insert
             results.ForEach(result =>
             {
                 if (result.RawFields.Any(field => field.FieldName == "vocab"))
                 {
+
                     result.ModuleOverviewFields = result
                         .RawFields.Where(f => f.FieldName == "vocab")
                         .Select(f => new ModuleOverviewField(
@@ -107,6 +111,8 @@ app.MapPost(
                         .ToList();
                 }
             });
+
+            //insert record
 
             return results;
         }
