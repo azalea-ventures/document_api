@@ -51,10 +51,6 @@ public partial class ContentContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Data Source=tcp:revisa-db.database.windows.net,1433;Initial Catalog=revisa_db;Persist Security Info=False;User ID=revisa_admin;Password=EeR8kMiFf@y5SCb;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30");
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Client>(entity =>
@@ -359,13 +355,20 @@ public partial class ContentContext : DbContext
                 .HasForeignKey(d => d.SubjectId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__source_co__subje__234A136B");
+
+            // Add the relationship with SourceContentFields
+            entity.HasMany(e => e.SourceContentFields)
+                .WithOne(e => e.SourceContent)
+                .HasForeignKey(e => e.SourceContentId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__source_co__sourc__319832C2");
         });
 
         modelBuilder.Entity<SourceContentField>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("source_content_fields", "content");
+            entity.HasKey(e => new { e.SourceContentId, e.FieldName }).HasName("PK__source_content_fields");
+
+            entity.ToTable("source_content_fields", "content");
 
             entity.Property(e => e.FieldContent)
                 .HasColumnType("text")
@@ -376,7 +379,7 @@ public partial class ContentContext : DbContext
                 .HasColumnName("field_name");
             entity.Property(e => e.SourceContentId).HasColumnName("source_content_id");
 
-            entity.HasOne(d => d.SourceContent).WithMany()
+            entity.HasOne(d => d.SourceContent).WithMany(p => p.SourceContentFields)
                 .HasForeignKey(d => d.SourceContentId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__source_co__sourc__319832C2");
@@ -393,13 +396,20 @@ public partial class ContentContext : DbContext
                 .HasMaxLength(32)
                 .IsUnicode(false)
                 .HasColumnName("source_name");
+
+            // Configure the relationship with SourceTypeSubdivisions
+            entity.HasMany(e => e.SourceTypeSubdivisions)
+                .WithOne(e => e.SourceType)
+                .HasForeignKey(e => e.SourceTypeId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK__source_ty__sourc__206DA6C0");
         });
 
         modelBuilder.Entity<SourceTypeSubdivision>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("source_type_subdivisions", "content");
+            entity.HasKey(e => new { e.SourceTypeId, e.SubdivName }).HasName("PK__source_type_subdivisions");
+
+            entity.ToTable("source_type_subdivisions", "content");
 
             entity.Property(e => e.SourceTypeId).HasColumnName("source_type_id");
             entity.Property(e => e.SubdivLevel).HasColumnName("subdiv_level");
@@ -408,7 +418,7 @@ public partial class ContentContext : DbContext
                 .IsUnicode(false)
                 .HasColumnName("subdiv_name");
 
-            entity.HasOne(d => d.SourceType).WithMany()
+            entity.HasOne(d => d.SourceType).WithMany(p => p.SourceTypeSubdivisions)
                 .HasForeignKey(d => d.SourceTypeId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__source_ty__sourc__206DA6C0");

@@ -9,8 +9,7 @@ public partial class SourceType
 
     public string SourceName { get; set; } = null!;
 
-    public virtual ICollection<SourceContent> SourceContents { get; set; } =
-        new List<SourceContent>();
-    public ICollection<SourceTypeSubdivision> SourceTypeSubdivisions { get; set; } =
-        new List<SourceTypeSubdivision>();
+    public virtual ICollection<SourceContent> SourceContents { get; set; } = new List<SourceContent>();
+
+    public virtual ICollection<SourceTypeSubdivision> SourceTypeSubdivisions { get; set; } = new List<SourceTypeSubdivision>();
 }

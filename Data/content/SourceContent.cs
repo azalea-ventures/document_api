@@ -20,4 +20,6 @@ public partial class SourceContent
     public virtual SourceType SourceType { get; set; } = null!;
 
     public virtual Subject Subject { get; set; } = null!;
+    
+    public virtual ICollection<SourceContentField> SourceContentFields { get; set; } = new List<SourceContentField>();
 }

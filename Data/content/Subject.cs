@@ -5,7 +5,6 @@ namespace DocumentApi.Data.content;
 
 public partial class Subject
 {
-
     public int Id { get; set; }
 
     public string Subject1 { get; set; } = null!;

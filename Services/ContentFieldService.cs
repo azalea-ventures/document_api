@@ -6,6 +6,7 @@ namespace DocumentApi.Services
     public interface IContentFieldService
     {
         Task<string> PostModuleOverviewFields(List<FieldBase> fields, string path, string sourceType);
+        Task<SourceContent?> GetSourceContentByPath(string path); // New method
     }
 
     public class ContentFieldService : IContentFieldService
@@ -16,13 +17,20 @@ namespace DocumentApi.Services
         {
             _context = context;
         }
+
+        public async Task<SourceContent?> GetSourceContentByPath(string path)
+        {
+            return await _context.SourceContents.FirstOrDefaultAsync(sc => sc.SourceContentName == path);
+        }
+
         public async Task<string> PostModuleOverviewFields(
             List<FieldBase> fields,
             string path,
             string sourceType
         )
         {
-            var parts = path.Split('/');
+            var uri = new Uri(path);
+            var parts = uri.AbsolutePath.Split(new[] { "/source-files/" }, StringSplitOptions.None).Last().Split('/');
             if (parts.Length < 4 || parts.Last() != "module_overview.pdf")
             {
                 return "no match on module";
@@ -35,6 +43,14 @@ namespace DocumentApi.Services
 
             if (sourceType.ToUpper() == "EUREKA")
             {
+                // Check if a record exists with the same SourceContentName
+                var existingSourceContent = await GetSourceContentByPath(path);
+                if (existingSourceContent != null)
+                {
+                    return "record already exists";
+                }
+
+                // try to find a matching source content record based on grade and subject
                 var sourceContent = await _context
                     .SourceContents.Include(sc => sc.SourceType)
                     .ThenInclude(st => st.SourceTypeSubdivisions)
@@ -42,9 +58,27 @@ namespace DocumentApi.Services
                         sc.Subject.Subject1 == subject && sc.Grade.Grade1 == grade
                     );
 
+                // or create a new one if it doesn't exist
                 if (sourceContent == null)
                 {
-                    sourceContent = new SourceContent { Subject = new(subject), Grade = new(grade), };
+                    var existingSubject = await _context.Subjects.FirstOrDefaultAsync(s => s.Subject1 == subject);
+                    if (existingSubject == null)
+                    {
+                        return $"Subject '{subject}' not found";
+                    }
+
+                    var existingGrade = await _context.Grades.FirstOrDefaultAsync(g => g.Grade1 == grade);
+                    if (existingGrade == null)
+                    {
+                        return $"Grade '{grade}' not found";
+                    }
+
+                    sourceContent = new SourceContent
+                    {
+                        Subject = existingSubject,
+                        Grade = existingGrade,
+                        SourceContentName = path // Set the SourceContentName property
+                    };
                     _context.SourceContents.Add(sourceContent);
                     await _context.SaveChangesAsync();
                 }

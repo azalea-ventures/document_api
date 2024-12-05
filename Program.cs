@@ -1,5 +1,6 @@
 using Azure.Storage.Blobs;
 using DocumentApi.Data.content;
+using DocumentApi.Services;
 using Microsoft.EntityFrameworkCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -27,6 +28,7 @@ Action<DbContextOptionsBuilder> dbConfig = (opt) =>
 builder.Services.AddDbContext<ContentContext>(dbConfig);
 builder.Services.AddScoped<IPdfSplitter, PdfSplitter>();
 builder.Services.AddScoped<ITextExtractionProvider, TextExtractionProvider>();
+builder.Services.AddScoped<IContentFieldService, ContentFieldService>();
 
 var app = builder.Build();
 app.UseSwagger();
@@ -84,39 +86,64 @@ app.MapPost(
     .WithOpenApi();
 
 app.MapPost(
-        "/extract/module-overview",
-        async Task<List<DocumentFields>> (
-            string uri,
-            string modelId,
-            ITextExtractionProvider provider
-        ) =>
+    "/extract/module-overview",
+    async Task<List<DocumentFields>> (
+        string uri,
+        string modelId,
+        ITextExtractionProvider provider,
+        IContentFieldService contentFieldService
+    ) =>
+    {
+        // Check if a record exists with the same SourceContentName
+        SourceContent existingSourceContent = await contentFieldService.GetSourceContentByPath(uri);
+        if (existingSourceContent != null)
         {
-            //extract from blob file
-            var results = await provider.ExtractTextFromUrisAsync(
-                new List<Uri> { new Uri(uri) },
-                modelId
-            );
-            //massage for db insert
-            results.ForEach(result =>
+            // Return the existing record
+            return new List<DocumentFields>
             {
-                if (result.RawFields.Any(field => field.FieldName == "vocab"))
+                new DocumentFields
                 {
-
-                    result.ModuleOverviewFields = result
-                        .RawFields.Where(f => f.FieldName == "vocab")
-                        .Select(f => new ModuleOverviewField(
-                            "vocab",
-                            f.FieldContentRaw.Split(" · ")
-                        ))
-                        .ToList();
+                    RawFields = existingSourceContent.SourceContentFields.Select(f => new FieldBase(f.FieldName, f.FieldContent)).ToList()
                 }
-            });
-
-            //insert record
-
-            return results;
+            };
         }
-    )
-    .WithOpenApi();
+
+        //extract from blob file
+        var results = await provider.ExtractTextFromUrisAsync(
+            new List<Uri> { new Uri(uri) },
+            modelId
+        );
+
+        foreach (var result in results)
+        {
+            if (result.RawFields.Any(field => field.FieldName == "vocab"))
+            {
+                result.ModuleOverviewFields = result
+                    .RawFields.Where(f => f.FieldName == "vocab")
+                    .Select(f => new ModuleOverviewField(
+                        "vocab",
+                        f.FieldContentRaw.Split(" · ")
+                    ))
+                    .ToList();
+            }
+
+            // Call PostModuleOverviewFields method
+            var postResult = await contentFieldService.PostModuleOverviewFields(
+                result.RawFields,
+                uri,
+                "EUREKA"
+            );
+
+            if (postResult != "success")
+            {
+                throw new Exception(postResult);
+            }
+        }
+
+        return results;
+    }
+)
+.WithOpenApi();
 
 app.Run();
+
