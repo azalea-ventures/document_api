@@ -1,6 +1,5 @@
-using Azure;
-using Azure.AI.DocumentIntelligence;
 using Azure.Storage.Blobs;
+using Microsoft.EntityFrameworkCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +12,17 @@ string? blobConnectionString =
     Environment.GetEnvironmentVariable("REVISA_BUCKET")
     ?? builder.Configuration.GetConnectionString("REVISA_BUCKET");
 builder.Services.AddSingleton(x => new BlobServiceClient(blobConnectionString));
+
+// Database config setup
+string? connectionString =
+    Environment.GetEnvironmentVariable("REVISA_DB")
+    ?? builder.Configuration.GetConnectionString("REVISA_DB");
+
+Action<DbContextOptionsBuilder> dbConfig = (opt) =>
+{
+    opt.UseSqlServer(connectionString);
+    // opt.EnableSensitiveDataLogging(true);
+};
 
 builder.Services.AddScoped<IPdfSplitter, PdfSplitter>();
 builder.Services.AddScoped<ITextExtractionProvider, TextExtractionProvider>();
