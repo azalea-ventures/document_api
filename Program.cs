@@ -59,14 +59,14 @@ app.MapPost(
 app.MapPost(
         "/split",
         async Task (
-            string blobName,
+            string documentUri,
             string pageRange,
             IDocumentClassificationProvider provider,
             IPdfSplitter splitter
         ) =>
         {
-            var result = await provider.ClassifyDocumentAsync(blobName, pageRange);
-            await splitter.SplitPdfAsync(blobName, result);
+            var result = await provider.ClassifyDocumentAsync(documentUri, pageRange);
+            await splitter.SplitPdfAsync(documentUri, result);
         }
     )
     .WithOpenApi();
