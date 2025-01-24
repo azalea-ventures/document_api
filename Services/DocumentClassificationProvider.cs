@@ -4,30 +4,34 @@ using Azure.AI.DocumentIntelligence;
 public interface IDocumentClassificationProvider
 {
     Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(
-        string blobName, string pageRange
+        string blobName,
+        string pageRange
     );
 }
 
 public class DocumentClassificationProvider : IDocumentClassificationProvider
 {
+    private IConfiguration _configuration;
 
-        private IConfiguration _configuration;
+    public DocumentClassificationProvider(IConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
 
-        public DocumentClassificationProvider(IConfiguration configuration){
-            _configuration = configuration;
-        }
     public async Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(
-        string blobName, string pageRange
+        string blobName,
+        string pageRange
     )
     {
-
         var client = new DocumentIntelligenceClient(
             new Uri(_configuration.GetValue<string>("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")),
-            new AzureKeyCredential(_configuration.GetValue<string>("AZURE_DOCUMENT_INTELLIGENCE_KEY"))
+            new AzureKeyCredential(
+                _configuration.GetValue<string>("AZURE_DOCUMENT_INTELLIGENCE_KEY")
+            )
         );
 
         Uri documentUri = new Uri(blobName);
-        string classifierId = "math-reader-v0.5.0";
+        string classifierId = "math-reader-v0.6.0";
         var content = new ClassifyDocumentContent() { UrlSource = documentUri };
 
         Operation<AnalyzeResult> operation = await client.ClassifyDocumentAsync(
@@ -45,11 +49,19 @@ public class DocumentClassificationProvider : IDocumentClassificationProvider
             )
             .ToList();
 
-        List<(string DocType, int StartPage, int EndPage)> docs = docsPages.Select((doc) => {
-            return (DocType:doc.DocType, StartPage:doc.Pages.Min(), EndPage:doc.Pages.Max());
-            }).ToList();
+        List<(string DocType, int StartPage, int EndPage)> docs = docsPages
+            .Select(
+                (doc) =>
+                {
+                    return (
+                        DocType: doc.DocType,
+                        StartPage: doc.Pages.Min(),
+                        EndPage: doc.Pages.Max()
+                    );
+                }
+            )
+            .ToList();
 
         return docs;
     }
-
 }
