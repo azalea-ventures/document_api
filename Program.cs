@@ -86,64 +86,70 @@ app.MapPost(
     .WithOpenApi();
 
 app.MapPost(
-    "/extract/module-overview",
-    async Task<List<DocumentFields>> (
-        string uri,
-        string modelId,
-        ITextExtractionProvider provider,
-        IContentFieldService contentFieldService
-    ) =>
-    {
-        // Check if a record exists with the same SourceContentName
-        SourceContent existingSourceContent = await contentFieldService.GetSourceContentByPath(uri);
-        if (existingSourceContent != null)
+        "/extract/module-overview",
+        async Task<List<DocumentFields>> (
+            string uri,
+            string modelId,
+            ITextExtractionProvider provider,
+            IContentFieldService contentFieldService
+        ) =>
         {
-            // Return the existing record
-            return new List<DocumentFields>
+            // Check if a record exists with the same SourceContentName
+            SourceContent existingSourceContent = await contentFieldService.GetSourceContentByPath(
+                uri
+            );
+            if (existingSourceContent != null)
             {
-                new DocumentFields
+                // Return the existing record
+                return new List<DocumentFields>
                 {
-                    RawFields = existingSourceContent.SourceContentFields.Select(f => new FieldBase(f.FieldName, f.FieldContent)).ToList()
-                }
-            };
-        }
-
-        //extract from blob file
-        var results = await provider.ExtractTextFromUrisAsync(
-            new List<Uri> { new Uri(uri) },
-            modelId
-        );
-
-        foreach (var result in results)
-        {
-            if (result.RawFields.Any(field => field.FieldName == "vocab"))
-            {
-                result.ModuleOverviewFields = result
-                    .RawFields.Where(f => f.FieldName == "vocab")
-                    .Select(f => new ModuleOverviewField(
-                        "vocab",
-                        f.FieldContentRaw.Split(" · ")
-                    ))
-                    .ToList();
+                    new DocumentFields
+                    {
+                        RawFields = existingSourceContent
+                            .SourceContentFields.Select(f => new FieldBase(
+                                f.FieldName,
+                                f.FieldContent
+                            ))
+                            .ToList()
+                    }
+                };
             }
 
-            // Call PostModuleOverviewFields method
-            var postResult = await contentFieldService.PostModuleOverviewFields(
-                result.RawFields,
-                uri,
-                "EUREKA"
+            //extract from blob file
+            var results = await provider.ExtractTextFromUrisAsync(
+                new List<Uri> { new Uri(uri) },
+                modelId
             );
 
-            if (postResult != "success")
+            foreach (var result in results)
             {
-                throw new Exception(postResult);
-            }
-        }
+                if (result.RawFields.Any(field => field.FieldName == "vocab"))
+                {
+                    result.ModuleOverviewFields = result
+                        .RawFields.Where(f => f.FieldName == "vocab")
+                        .Select(f => new ModuleOverviewField(
+                            "vocab",
+                            f.FieldContentRaw.Split(" · ")
+                        ))
+                        .ToList();
+                }
 
-        return results;
-    }
-)
-.WithOpenApi();
+                // Call PostModuleOverviewFields method
+                var postResult = await contentFieldService.PostModuleOverviewFields(
+                    result.RawFields,
+                    uri,
+                    "EUREKA"
+                );
+
+                if (postResult != "success")
+                {
+                    throw new Exception(postResult);
+                }
+            }
+
+            return results;
+        }
+    )
+    .WithOpenApi();
 
 app.Run();
-
