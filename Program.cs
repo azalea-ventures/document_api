@@ -1,6 +1,7 @@
-using Azure;
-using Azure.AI.DocumentIntelligence;
 using Azure.Storage.Blobs;
+using DocumentApi.Data.content;
+using DocumentApi.Services;
+using Microsoft.EntityFrameworkCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -14,8 +15,20 @@ string? blobConnectionString =
     ?? builder.Configuration.GetConnectionString("REVISA_BUCKET");
 builder.Services.AddSingleton(x => new BlobServiceClient(blobConnectionString));
 
+// Database config setup
+string? connectionString =
+    Environment.GetEnvironmentVariable("REVISA_DB")
+    ?? builder.Configuration.GetConnectionString("REVISA_DB");
+
+Action<DbContextOptionsBuilder> dbConfig = (opt) =>
+{
+    opt.UseSqlServer(connectionString);
+    // opt.EnableSensitiveDataLogging(true);
+};
+builder.Services.AddDbContext<ContentContext>(dbConfig);
 builder.Services.AddScoped<IPdfSplitter, PdfSplitter>();
 builder.Services.AddScoped<ITextExtractionProvider, TextExtractionProvider>();
+builder.Services.AddScoped<IContentFieldService, ContentFieldService>();
 
 var app = builder.Build();
 app.UseSwagger();
@@ -77,14 +90,38 @@ app.MapPost(
         async Task<List<DocumentFields>> (
             string uri,
             string modelId,
-            ITextExtractionProvider provider
+            ITextExtractionProvider provider,
+            IContentFieldService contentFieldService
         ) =>
         {
+            // Check if a record exists with the same SourceContentName
+            SourceContent existingSourceContent = await contentFieldService.GetSourceContentByPath(
+                uri
+            );
+            if (existingSourceContent != null)
+            {
+                // Return the existing record
+                return new List<DocumentFields>
+                {
+                    new DocumentFields
+                    {
+                        RawFields = existingSourceContent
+                            .SourceContentFields.Select(f => new FieldBase(
+                                f.FieldName,
+                                f.FieldContent
+                            ))
+                            .ToList()
+                    }
+                };
+            }
+
+            //extract from blob file
             var results = await provider.ExtractTextFromUrisAsync(
                 new List<Uri> { new Uri(uri) },
                 modelId
             );
-            results.ForEach(result =>
+
+            foreach (var result in results)
             {
                 if (result.RawFields.Any(field => field.FieldName == "vocab"))
                 {
@@ -96,7 +133,19 @@ app.MapPost(
                         ))
                         .ToList();
                 }
-            });
+
+                // Call PostModuleOverviewFields method
+                var postResult = await contentFieldService.PostModuleOverviewFields(
+                    result.RawFields,
+                    uri,
+                    "EUREKA"
+                );
+
+                if (postResult != "success")
+                {
+                    throw new Exception(postResult);
+                }
+            }
 
             return results;
         }

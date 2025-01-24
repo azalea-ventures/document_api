@@ -23,10 +23,7 @@ public class TextExtractionProvider : ITextExtractionProvider
 
     public async Task<List<Uri>> GetBlobsUrisAsync(string path)
     {
-        if (!path.EndsWith("/"))
-        {
-            path += "/";
-        }
+
         List<Uri> blobUris = new List<Uri>();
 
         // List blobs with the specified prefix (folder)
@@ -40,7 +37,10 @@ public class TextExtractionProvider : ITextExtractionProvider
         return blobUris;
     }
 
-    public async Task<List<DocumentFields>> ExtractTextFromUrisAsync(List<Uri> blobUris, string modelId)
+    public async Task<List<DocumentFields>> ExtractTextFromUrisAsync(
+        List<Uri> blobUris,
+        string modelId
+    )
     {
         if (!blobUris.Any())
         {
