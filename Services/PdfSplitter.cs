@@ -6,6 +6,7 @@ public interface IPdfSplitter
 {
     Task SplitPdfAsync(
         string blobUri,
+        string desiredDocType,
         List<(string DocType, int StartPage, int EndPage)> documents
     );
 }
@@ -22,65 +23,45 @@ public class PdfSplitter : IPdfSplitter
 
     public async Task SplitPdfAsync(
         string blobUri,
+        string desiredDocType,
         List<(string DocType, int StartPage, int EndPage)> documents
     )
     {
         string destFolder = "output";
-        string blobName = String.Join(
+
+        // Extract blob name from the URI
+        string inboundBlobName = string.Join(
             "/",
             blobUri.Split("/").Reverse().Take(2).Reverse().ToArray()
         );
-        // Get a reference to the blob (original full document)
-        BlobClient blobClient = _containerClient.GetBlobClient(blobName);
-        // Download the blob to a stream
+
+        BlobClient blobClient = _containerClient.GetBlobClient(inboundBlobName);
+
         using (MemoryStream stream = new MemoryStream())
         {
             await blobClient.DownloadToAsync(stream);
-            stream.Position = 0; // Reset the stream position
-            List<(int StartPage, int EndPage)> pageBoundaries = documents
-                .Select(doc => (doc.StartPage, doc.EndPage))
-                .ToList();
+            stream.Position = 0;
 
-            // Loop through each boundary and save each part as a separate blob
+            int docNumber = 0;
 
-            int topic = 0;
-            int lessonNumber = 0;
-
-            for (int i = 0; i < pageBoundaries.Count; i++)
+            foreach (var document in documents)
             {
-                var (startPage, endPage) = pageBoundaries[i];
+                var (docType, startPage, endPage) = document;
 
                 using (MemoryStream splitDocStream = new MemoryStream())
                 {
                     SetOutputStream(stream, splitDocStream, startPage, endPage);
                     splitDocStream.Position = 0;
-                    // Save the part to a new blob
-                    string docTypeFolder = documents[i].DocType;
 
-                    switch (docTypeFolder){
-                        case "topic":
-                            topic++;
-                            break;
-                        case "lesson":
-                            lessonNumber++;
-                            break;
-                        default:
-                            break;
+                    string outboundblobName = destFolder;
+
+                    if (docType.Equals(desiredDocType, StringComparison.OrdinalIgnoreCase))
+                    {
+                        docNumber++;
+                        outboundblobName += $"/{docType}{docNumber}.pdf";
                     }
 
-                    string partBlobName = $"{destFolder}";
-
-                    if (topic != 0 && !docTypeFolder.Equals("answer_key")){
-                        partBlobName += $"/topic{topic}";
-                    }
-                    if (lessonNumber != 0 && !docTypeFolder.Equals("answer_key") 
-                    && !docTypeFolder.Equals("mm_assessment_task") 
-                    && !docTypeFolder.Equals("end_of_module_task")){
-                        partBlobName += $"/{lessonNumber}";
-                    }
-
-
-                    BlobClient partBlobClient = _containerClient.GetBlobClient(partBlobName + "/" + docTypeFolder + ".pdf");
+                    BlobClient partBlobClient = _containerClient.GetBlobClient(outboundblobName);
 
                     await partBlobClient.UploadAsync(splitDocStream, overwrite: true);
                 }

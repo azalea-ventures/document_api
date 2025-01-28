@@ -6,7 +6,7 @@ using Azure.Storage.Blobs.Models;
 public interface ITextExtractionProvider
 {
     Task<List<Uri>> GetBlobsUrisAsync(string path);
-    Task<List<DocumentFields>> ExtractTextFromUrisAsync(List<Uri> blobUris, string modelId);
+    Task<List<DocumentFields>> ExtractTextFromUrisAsync(List<Uri> blobUris);
 }
 
 public class TextExtractionProvider : ITextExtractionProvider
@@ -38,9 +38,7 @@ public class TextExtractionProvider : ITextExtractionProvider
     }
 
     public async Task<List<DocumentFields>> ExtractTextFromUrisAsync(
-        List<Uri> blobUris,
-        string modelId
-    )
+        List<Uri> blobUris    )
     {
         if (!blobUris.Any())
         {
@@ -52,7 +50,7 @@ public class TextExtractionProvider : ITextExtractionProvider
                     .Select(
                         async (uri) =>
                         {
-                            return await ExtractTextFromUriAsync(uri, modelId);
+                            return await ExtractTextFromUriAsync(uri);
                         }
                     )
                     .ToArray()
@@ -83,7 +81,7 @@ public class TextExtractionProvider : ITextExtractionProvider
             );
     }
 
-    private async Task<AnalyzeResult> ExtractTextFromUriAsync(Uri blobUri, string modelId)
+    private async Task<AnalyzeResult> ExtractTextFromUriAsync(Uri blobUri)
     {
         var client = new DocumentIntelligenceClient(
             new Uri(_configuration.GetValue<string>("AZURE_TEXT_EXTRACTOR_ENDPOINT")),
@@ -94,7 +92,7 @@ public class TextExtractionProvider : ITextExtractionProvider
 
         Operation<AnalyzeResult> operation = await client.AnalyzeDocumentAsync(
             WaitUntil.Completed,
-            modelId,
+            _configuration.GetValue<string>("AZURE_TEXT_EXTRACTOR_MODEL_ID"),
             content
         );
         AnalyzeResult result = operation.Value;
