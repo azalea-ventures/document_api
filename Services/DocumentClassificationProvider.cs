@@ -3,10 +3,7 @@ using Azure.AI.DocumentIntelligence;
 
 public interface IDocumentClassificationProvider
 {
-    Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(
-        string blobUri,
-        string pageRange
-    );
+    Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(string blobUri);
 }
 
 public class DocumentClassificationProvider : IDocumentClassificationProvider
@@ -19,8 +16,7 @@ public class DocumentClassificationProvider : IDocumentClassificationProvider
     }
 
     public async Task<List<(string DocType, int StartPage, int EndPage)>> ClassifyDocumentAsync(
-        string blobUri,
-        string pageRange
+        string blobUri
     )
     {
         var client = new DocumentIntelligenceClient(
@@ -31,15 +27,13 @@ public class DocumentClassificationProvider : IDocumentClassificationProvider
         );
 
         Uri documentUri = new Uri(blobUri);
-        string classifierId = "math-reader-v0.6.0";
         var content = new ClassifyDocumentContent() { UrlSource = documentUri };
 
         Operation<AnalyzeResult> operation = await client.ClassifyDocumentAsync(
             WaitUntil.Completed,
-            classifierId,
+            _configuration.GetValue<string>("AZURE_DOCUMENT_CLASSIFIER_MODEL_ID"),
             content,
-            split: SplitMode.Auto,
-            pages: pageRange
+            split: SplitMode.Auto
         );
         AnalyzeResult result = operation.Value;
 

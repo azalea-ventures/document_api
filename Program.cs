@@ -25,6 +25,7 @@ Action<DbContextOptionsBuilder> dbConfig = (opt) =>
     opt.UseSqlServer(connectionString);
     // opt.EnableSensitiveDataLogging(true);
 };
+
 builder.Services.AddDbContext<ContentContext>(dbConfig);
 builder.Services.AddScoped<IPdfSplitter, PdfSplitter>();
 builder.Services.AddScoped<ITextExtractionProvider, TextExtractionProvider>();
@@ -36,13 +37,9 @@ app.UseSwaggerUI();
 
 app.MapPost(
         "/classify",
-        async Task<List<Document>> (
-            string blobName,
-            string pageRange,
-            IDocumentClassificationProvider provider
-        ) =>
+        async Task<List<Document>> (string documentUri, IDocumentClassificationProvider provider) =>
         {
-            var result = await provider.ClassifyDocumentAsync(blobName, pageRange);
+            var result = await provider.ClassifyDocumentAsync(documentUri);
 
             return result
                 .Select(doc => new Document
@@ -60,27 +57,23 @@ app.MapPost(
         "/split",
         async Task (
             string documentUri,
-            string pageRange,
+            string desiredDocType,
             IDocumentClassificationProvider provider,
             IPdfSplitter splitter
         ) =>
         {
-            var result = await provider.ClassifyDocumentAsync(documentUri, pageRange);
-            await splitter.SplitPdfAsync(documentUri, result);
+            var result = await provider.ClassifyDocumentAsync(documentUri);
+            await splitter.SplitPdfAsync(documentUri, desiredDocType, result);
         }
     )
     .WithOpenApi();
 
 app.MapPost(
         "/extract/lessons",
-        async Task<List<DocumentFields>> (
-            string path,
-            string modelId,
-            ITextExtractionProvider provider
-        ) =>
+        async Task<List<DocumentFields>> (string path, ITextExtractionProvider provider) =>
         {
             var urisResult = await provider.GetBlobsUrisAsync(path);
-            return await provider.ExtractTextFromUrisAsync(urisResult, modelId);
+            return await provider.ExtractTextFromUrisAsync(urisResult);
         }
     )
     .WithOpenApi();
@@ -89,7 +82,6 @@ app.MapPost(
         "/extract/module-overview",
         async Task<List<DocumentFields>> (
             string uri,
-            string modelId,
             ITextExtractionProvider provider,
             IContentFieldService contentFieldService
         ) =>
@@ -116,10 +108,7 @@ app.MapPost(
             }
 
             //extract from blob file
-            var results = await provider.ExtractTextFromUrisAsync(
-                new List<Uri> { new Uri(uri) },
-                modelId
-            );
+            var results = await provider.ExtractTextFromUrisAsync(new List<Uri> { new Uri(uri) });
 
             foreach (var result in results)
             {
