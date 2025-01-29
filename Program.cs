@@ -57,13 +57,13 @@ app.MapPost(
         "/split",
         async Task (
             string documentUri,
-            string desiredDocType,
+            List<string> desiredDocTypes,
             IDocumentClassificationProvider provider,
             IPdfSplitter splitter
         ) =>
         {
             var result = await provider.ClassifyDocumentAsync(documentUri);
-            await splitter.SplitPdfAsync(documentUri, desiredDocType, result);
+            await splitter.SplitPdfAsync(documentUri, desiredDocTypes, result);
         }
     )
     .WithOpenApi();
@@ -72,8 +72,36 @@ app.MapPost(
         "/extract/lessons",
         async Task<List<DocumentFields>> (string path, ITextExtractionProvider provider) =>
         {
-            var urisResult = await provider.GetBlobsUrisAsync(path);
-            return await provider.ExtractTextFromUrisAsync(urisResult);
+            var textResults = await provider.ExtractTextFromUrisAsync(
+                await provider.GetBlobsUrisAsync(path)
+            );
+
+            return
+            [
+                .. textResults.OrderBy(r =>
+                {
+                    var lessonField = r.RawFields.FirstOrDefault(f =>
+                        f.FieldName == "lessonNumber"
+                    );
+                    if (lessonField == null || string.IsNullOrEmpty(lessonField.FieldContentRaw))
+                    {
+                        return int.MaxValue; // Place records without a lesson number at the end
+                    }
+
+                    // Extract numeric value from FieldContentRaw
+                    string numericContent = new string(
+                        lessonField.FieldContentRaw.Where(char.IsDigit).ToArray()
+                    );
+
+                    if (int.TryParse(numericContent, out int lessonNumber))
+                    {
+                        lessonField.FieldContentRaw = lessonNumber.ToString(); // Reassign in normalized form
+                        return lessonNumber;
+                    }
+
+                    return int.MaxValue; // If parsing fails, place it at the end
+                })
+            ];
         }
     )
     .WithOpenApi();

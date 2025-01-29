@@ -6,7 +6,7 @@ public interface IPdfSplitter
 {
     Task SplitPdfAsync(
         string blobUri,
-        string desiredDocType,
+        List<string> desiredDocTypes,
         List<(string DocType, int StartPage, int EndPage)> documents
     );
 }
@@ -23,12 +23,10 @@ public class PdfSplitter : IPdfSplitter
 
     public async Task SplitPdfAsync(
         string blobUri,
-        string desiredDocType,
+        List<string> desiredDocTypes,
         List<(string DocType, int StartPage, int EndPage)> documents
     )
     {
-        string destFolder = "output";
-
         // Extract blob name from the URI
         string inboundBlobName = string.Join(
             "/",
@@ -48,22 +46,31 @@ public class PdfSplitter : IPdfSplitter
             {
                 var (docType, startPage, endPage) = document;
 
-                using (MemoryStream splitDocStream = new MemoryStream())
+                foreach (var desiredDocType in desiredDocTypes)
                 {
-                    SetOutputStream(stream, splitDocStream, startPage, endPage);
-                    splitDocStream.Position = 0;
-
-                    string outboundblobName = destFolder;
-
-                    if (docType.Equals(desiredDocType, StringComparison.OrdinalIgnoreCase))
+                    if (!docType.Equals(desiredDocType, StringComparison.OrdinalIgnoreCase))
                     {
-                        docNumber++;
-                        outboundblobName += $"/{docType}{docNumber}.pdf";
+                        continue;
                     }
+                    using (MemoryStream splitDocStream = new MemoryStream())
+                    {
+                        SetOutputStream(stream, splitDocStream, startPage, endPage);
+                        splitDocStream.Position = 0;
 
-                    BlobClient partBlobClient = _containerClient.GetBlobClient(outboundblobName);
+                        string outboundblobName = Path.GetFileNameWithoutExtension(inboundBlobName);
 
-                    await partBlobClient.UploadAsync(splitDocStream, overwrite: true);
+                        if (docType.Equals(desiredDocType, StringComparison.OrdinalIgnoreCase))
+                        {
+                            docNumber++;
+                            outboundblobName += $"/{docType}_{docNumber}.pdf";
+                        }
+
+                        BlobClient partBlobClient = _containerClient.GetBlobClient(
+                            outboundblobName
+                        );
+
+                        await partBlobClient.UploadAsync(splitDocStream, overwrite: true);
+                    }
                 }
             }
         }
