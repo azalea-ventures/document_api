@@ -39,7 +39,7 @@ app.MapPost(
         "/classify",
         async Task<List<Document>> (string documentUri, IDocumentClassificationProvider provider) =>
         {
-            var result = await provider.ClassifyDocumentAsync(documentUri);
+            var result = await provider.ClassifyDocumentsAsync(documentUri);
 
             return result
                 .Select(doc => new Document
@@ -62,7 +62,7 @@ app.MapPost(
             IPdfSplitter splitter
         ) =>
         {
-            var result = await provider.ClassifyDocumentAsync(documentUri);
+            var result = await provider.ClassifyDocumentsAsync(documentUri);
             await splitter.SplitPdfAsync(documentUri, desiredDocTypes, result);
         }
     )
